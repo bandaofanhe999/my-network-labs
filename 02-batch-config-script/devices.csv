@@ -1,0 +1,5 @@
+﻿name,host,port,transport,user,password
+LSW1,127.0.0.1,2001,console,,
+LSW2,127.0.0.1,2002,console,,
+LSW3,127.0.0.1,2003,console,,
+AR1,127.0.0.1,2004,console,,
