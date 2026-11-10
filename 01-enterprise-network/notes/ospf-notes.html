@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OSPF 图解笔记 · 从零到排障</title>
+<style>
+  :root{
+    --bg:#0f1319;
+    --panel:#161c24;
+    --panel-2:#1b232e;
+    --line:#2a3441;
+    --ink:#e6ebf2;
+    --ink-2:#9aa8bb;
+    --ink-3:#6b7a8f;
+    --blue:#4a9eff;
+    --blue-dim:#1e3a5f;
+    --green:#3ddc84;
+    --green-dim:#123d2a;
+    --amber:#f5b642;
+    --amber-dim:#3d2f10;
+    --red:#ff6b6b;
+    --red-dim:#3d1a1a;
+    --purple:#b48bff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:15px;
+    line-height:1.8;
+    padding:48px 20px 100px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:860px;margin:0 auto}
+
+  header{margin-bottom:44px;padding-bottom:24px;border-bottom:1px solid var(--line)}
+  h1{font-size:30px;font-weight:700;letter-spacing:-.5px;margin-bottom:8px}
+  h1 span{color:var(--blue)}
+  .sub{color:var(--ink-3);font-size:14px}
+
+  section{margin-bottom:52px}
+  h2{
+    font-size:19px;font-weight:700;margin-bottom:6px;
+    display:flex;align-items:center;gap:11px;
+  }
+  h2 .n{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:28px;height:28px;border-radius:8px;
+    background:var(--blue-dim);color:var(--blue);
+    font-size:13px;font-weight:700;flex-shrink:0;
+    border:1px solid #2d5580;
+  }
+  .lead{color:var(--ink-2);font-size:14px;margin-bottom:20px;padding-left:39px}
+
+  p{color:var(--ink-2);margin-bottom:14px}
+  p b,li b{color:var(--ink);font-weight:600}
+  .hl{color:var(--blue);font-weight:600}
+  .g{color:var(--green);font-weight:600}
+  .r{color:var(--red);font-weight:600}
+  .a{color:var(--amber);font-weight:600}
+
+  .card{
+    background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;padding:22px 24px;margin-bottom:16px;
+  }
+  .card h3{font-size:15px;margin-bottom:10px;color:var(--ink);font-weight:700}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:16px 0}
+  th{
+    text-align:left;padding:10px 13px;background:var(--panel-2);
+    color:var(--ink-2);font-weight:600;font-size:12.5px;
+    border-bottom:1px solid var(--line);
+  }
+  td{padding:10px 13px;border-bottom:1px solid var(--line);color:var(--ink-2);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  td b{color:var(--ink)}
+
+  .diagram{
+    background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;padding:24px;margin:20px 0;
+    overflow-x:auto;
+  }
+  .diagram svg{display:block;margin:0 auto;max-width:100%;height:auto}
+  .cap{text-align:center;color:var(--ink-3);font-size:12.5px;margin-top:12px}
+
+  .quote{
+    border-left:3px solid var(--blue);
+    background:var(--blue-dim);
+    padding:14px 20px;border-radius:0 8px 8px 0;
+    margin:18px 0;font-size:14.5px;color:#c5d9f0;
+  }
+  .quote.bad{border-color:var(--red);background:var(--red-dim);color:#f0c5c5}
+  .quote.good{border-color:var(--green);background:var(--green-dim);color:#c5f0d9}
+  .quote b{color:#fff}
+
+  .flow{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    margin:18px 0;font-size:13px;
+  }
+  .flow .box{
+    background:var(--panel-2);border:1px solid var(--line);
+    padding:8px 14px;border-radius:7px;color:var(--ink);
+    white-space:nowrap;
+  }
+  .flow .arr{color:var(--ink-3)}
+
+  code{
+    font-family:"SF Mono",Consolas,"Courier New",monospace;
+    background:#0a0d12;color:#8ecfff;
+    padding:2px 6px;border-radius:4px;font-size:13px;
+    border:1px solid #1e2833;
+  }
+  pre{
+    background:#0a0d12;border:1px solid #1e2833;border-radius:9px;
+    padding:16px 18px;overflow-x:auto;margin:14px 0;
+  }
+  pre code{background:none;border:none;padding:0;font-size:13px;line-height:1.75;color:#b8c8d8}
+  pre code .cm{color:#5c6f85}
+  pre code .kw{color:#ff9d6b}
+  pre code .st{color:#8ed99d}
+
+  .steps{list-style:none;counter-reset:s}
+  .steps li{
+    counter-increment:s;position:relative;padding-left:38px;
+    margin-bottom:14px;color:var(--ink-2);font-size:14px;
+  }
+  .steps li::before{
+    content:counter(s);position:absolute;left:0;top:1px;
+    width:24px;height:24px;border-radius:50%;
+    background:var(--blue-dim);color:var(--blue);
+    border:1px solid #2d5580;
+    font-size:12px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .steps li b{display:block;color:var(--ink);margin-bottom:2px}
+
+  .tag{
+    display:inline-block;font-size:11px;padding:2px 9px;border-radius:20px;
+    font-weight:600;margin-right:6px;
+  }
+  .tag.in{background:var(--green-dim);color:var(--green);border:1px solid #1e5c3f}
+  .tag.out{background:var(--amber-dim);color:var(--amber);border:1px solid #5c4616}
+
+  .kv{display:grid;grid-template-columns:88px 1fr;gap:8px 14px;font-size:13.5px;margin:14px 0}
+  .kv .k{color:var(--ink-3)}
+  .kv .v{color:var(--ink-2)}
+
+  footer{
+    margin-top:60px;padding-top:22px;border-top:1px solid var(--line);
+    color:var(--ink-3);font-size:12.5px;text-align:center;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>OSPF <span>图解笔记</span></h1>
+  <div class="sub">从零到排障 · 附实战案例复盘</div>
+</header>
+
+<!-- ==================== 1 ==================== -->
+<section>
+  <h2><span class="n">1</span>路由协议要解决的问题</h2>
+  <p class="lead">包到了路由器，必须回答一个问题：从哪个口扔出去？</p>
+
+  <p>答案存在 <b>路由表</b> 里。小网络手写就行，但几百台设备、几千个网段时，手工维护会崩——任何一条链路断了，全网表格都得重写。</p>
+
+  <p>所以要让路由器 <b>自己学会怎么走</b>。这就是路由协议的全部意义。</p>
+
+  <div class="quote">
+    <b>一句话：</b>路由协议不是让网络"通"的技术，而是让网络"断了能自己恢复"的技术。
+  </div>
+</section>
+
+<!-- ==================== 2 ==================== -->
+<section>
+  <h2><span class="n">2</span>两种思路：打听 vs 看地图</h2>
+  <p class="lead">所有路由协议只分两大流派，差别是"你怎么知道路"。</p>
+
+  <table>
+    <thead><tr><th style="width:26%"></th><th style="width:37%">RIP（距离矢量）</th><th style="width:37%">OSPF（链路状态）</th></tr></thead>
+    <tbody>
+      <tr><td><b>怎么获取</b></td><td>问邻居："去北京几跳？"</td><td>每人一张<b>完整地图</b>，自己算</td></tr>
+      <tr><td><b>比喻</b></td><td>路口问人：往前两个路口</td><td>打开高德，自己规划</td></tr>
+      <tr><td><b>致命问题</b></td><td class="r">会绕圈（路由环路）</td><td class="g">不会绕圈</td></tr>
+      <tr><td><b>收敛速度</b></td><td>分钟级</td><td>秒级</td></tr>
+    </tbody>
+  </table>
+
+  <p><b>RIP 为什么会绕圈？</b>因为它是"听说"。A 说"去北京走 B"，B 说"走 A"，包就在两人之间来回弹到 TTL 耗尽。OSPF 因为有完整地图，算路时能看见"我要经过我自己"这种荒谬路径，直接排除。</p>
+</section>
+
+<!-- ==================== 3 ==================== -->
+<section>
+  <h2><span class="n">3</span>三张表：OSPF 的全部家当</h2>
+  <p class="lead">一台路由器跑 OSPF，脑子里只装三样东西。</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 720 200" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+          <path d="M0,1 L7,4.5 L0,8 z" fill="#4a9eff"/>
+        </marker>
+      </defs>
+
+      <!-- 邻居表 -->
+      <rect x="20" y="60" width="150" height="76" rx="9" fill="#1b232e" stroke="#2a3441"/>
+      <text x="95" y="86" text-anchor="middle" fill="#e6ebf2" font-size="13" font-weight="700">邻居表</text>
+      <text x="95" y="106" text-anchor="middle" fill="#6b7a8f" font-size="11.5">我认识谁</text>
+      <text x="95" y="124" text-anchor="middle" fill="#4a9eff" font-size="11">微信好友列表</text>
+
+      <!-- 箭头 -->
+      <line x1="176" y1="98" x2="222" y2="98" stroke="#4a9eff" stroke-width="1.5" marker-end="url(#ar)"/>
+      <text x="199" y="88" text-anchor="middle" fill="#6b7a8f" font-size="10.5">Hello</text>
+
+      <!-- LSDB -->
+      <rect x="230" y="52" width="180" height="92" rx="9" fill="#1e3a5f" stroke="#2d5580"/>
+      <text x="320" y="80" text-anchor="middle" fill="#e6ebf2" font-size="13" font-weight="700">LSDB</text>
+      <text x="320" y="100" text-anchor="middle" fill="#c5d9f0" font-size="11.5">链路状态数据库</text>
+      <text x="320" y="120" text-anchor="middle" fill="#4a9eff" font-size="11">拼好的全国地图</text>
+
+      <!-- 箭头 -->
+      <line x1="416" y1="98" x2="462" y2="98" stroke="#4a9eff" stroke-width="1.5" marker-end="url(#ar)"/>
+      <text x="439" y="88" text-anchor="middle" fill="#6b7a8f" font-size="10.5">SPF</text>
+
+      <!-- 路由表 -->
+      <rect x="470" y="60" width="150" height="76" rx="9" fill="#1b232e" stroke="#2a3441"/>
+      <text x="545" y="86" text-anchor="middle" fill="#e6ebf2" font-size="13" font-weight="700">路由表</text>
+      <text x="545" y="106" text-anchor="middle" fill="#6b7a8f" font-size="11.5">最终怎么走</text>
+      <text x="545" y="124" text-anchor="middle" fill="#3ddc84" font-size="11">出行路线</text>
+
+      <text x="320" y="176" text-anchor="middle" fill="#9aa8bb" font-size="11.5">LSA 泛洪 → 集齐所有人的明信片 → 拼成地图 → 算最短路</text>
+    </svg>
+  </div>
+
+  <div class="quote">
+    <b>OSPF 的核心信仰：</b>同一个区域里，所有路由器的 LSDB 必须<b>完全一致</b>。<br>
+    所以看到 <code>State = Full</code> 之所以让人高兴，是因为 <b>Full 的含义是"咱俩的地图已经对齐了"</b>。
+  </div>
+</section>
+
+<!-- ==================== 4 ==================== -->
+<section>
+  <h2><span class="n">4</span>LSA：地图是怎么拼出来的</h2>
+  <p class="lead">LSDB 里的内容叫 LSA，一条 LSA 就是一张明信片。</p>
+
+  <p>（Link State Advertisement，链路状态通告）的内容是：<b>"我是谁，我旁边坐着谁"</b>。</p>
+
+  <pre><code><span class="cm"># LSW1 写的明信片</span>
+我是 LSW1（Router ID 1.1.1.1）
+我连着：192.168.10.0/24、192.168.20.0/24、192.168.99.0/24
+我的邻居：AR1（通过 10.0.0.0/30）</code></pre>
+
+  <p>每台设备都写一张，互相传，最后<b>每个人都集齐全班所有人的明信片</b>——拼起来就是完整的座位表。这个过程叫 <b class="hl">泛洪（Flooding）</b>。</p>
+
+  <table>
+    <thead><tr><th style="width:14%">类型</th><th style="width:22%">谁产生</th><th style="width:32%">说什么</th><th style="width:32%">比喻</th></tr></thead>
+    <tbody>
+      <tr><td><b>Type-1</b></td><td>每台路由器</td><td>我是谁、连了哪些网段</td><td>自我介绍</td></tr>
+      <tr><td><b>Type-2</b></td><td>DR（班长）</td><td>这个广播网段上有谁</td><td>小组名单</td></tr>
+      <tr><td><b>Type-3</b></td><td>ABR（区域边界）</td><td>我这边有哪些网段</td><td>别省概况</td></tr>
+      <tr><td class="a"><b>Type-5</b></td><td class="a">ASBR</td><td class="a">外面世界怎么走</td><td class="a">校门在哪</td></tr>
+    </tbody>
+  </table>
+
+  <div class="quote bad">
+    <b>Type-5 是关键。</b>它是唯一"外部路由"的载体，也是后面实战案例里出问题的地方。
+  </div>
+</section>
+
+<!-- ==================== 5 ==================== -->
+<section>
+  <h2><span class="n">5</span>区域：为什么要把网络切开</h2>
+  <p class="lead">一万台路由器每台存一万条 LSA，内存和 CPU 都扛不住。</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 640 250" xmlns="http://www.w3.org/2000/svg">
+      <!-- Area 0 -->
+      <rect x="200" y="20" width="240" height="76" rx="10" fill="#1e3a5f" stroke="#2d5580" stroke-width="1.5"/>
+      <text x="320" y="48" text-anchor="middle" fill="#4a9eff" font-size="13" font-weight="700">Area 0（骨干）</text>
+      <text x="320" y="70" text-anchor="middle" fill="#c5d9f0" font-size="11.5">所有区域必须连到它</text>
+
+      <!-- 连线 -->
+      <line x1="250" y1="96" x2="160" y2="150" stroke="#3a4757" stroke-width="1.5"/>
+      <line x1="390" y1="96" x2="480" y2="150" stroke="#3a4757" stroke-width="1.5"/>
+
+      <!-- Area 1 -->
+      <rect x="60" y="152" width="180" height="70" rx="10" fill="#161c24" stroke="#2a3441"/>
+      <text x="150" y="180" text-anchor="middle" fill="#e6ebf2" font-size="12.5" font-weight="700">Area 1</text>
+      <text x="150" y="202" text-anchor="middle" fill="#6b7a8f" font-size="11">只知自己 + 摘要</text>
+
+      <!-- Area 2 -->
+      <rect x="400" y="152" width="180" height="70" rx="10" fill="#161c24" stroke="#2a3441"/>
+      <text x="490" y="180" text-anchor="middle" fill="#e6ebf2" font-size="12.5" font-weight="700">Area 2</text>
+      <text x="490" y="202" text-anchor="middle" fill="#6b7a8f" font-size="11">只知自己 + 摘要</text>
+    </svg>
+    <div class="cap">区域内部传明细（Type-1/2），跨区域只传摘要（Type-3）</div>
+  </div>
+
+  <div class="quote">
+    <b>比喻：</b>你在合肥要知道每条街，但不需要知道乌鲁木齐每条街——只需要知道"乌鲁木齐在西北，走高速能到"。<br>
+    这样每台路由器的地图大小就可控了。
+  </div>
+</section>
+
+<!-- ==================== 6 ==================== -->
+<section>
+  <h2><span class="n">6</span>邻居的七个状态（面试高频）</h2>
+  <p class="lead">不用死背，理解"两个人从陌生到默契"的过程就行。</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 700 240" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="ar2" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+          <path d="M0,0.8 L6,4 L0,7.2 z" fill="#4a9eff"/>
+        </marker>
+      </defs>
+      <!-- 上排 -->
+      <rect x="16" y="30" width="96" height="46" rx="7" fill="#1b232e" stroke="#3a4757"/>
+      <text x="64" y="50" text-anchor="middle" fill="#9aa8bb" font-size="11.5" font-weight="600">Down</text>
+      <text x="64" y="66" text-anchor="middle" fill="#6b7a8f" font-size="10">陌生人</text>
+
+      <line x1="116" y1="53" x2="146" y2="53" stroke="#4a9eff" stroke-width="1.3" marker-end="url(#ar2)"/>
+
+      <rect x="150" y="30" width="96" height="46" rx="7" fill="#1b232e" stroke="#3a4757"/>
+      <text x="198" y="50" text-anchor="middle" fill="#9aa8bb" font-size="11.5" font-weight="600">Init</text>
+      <text x="198" y="66" text-anchor="middle" fill="#6b7a8f" font-size="10">单向可见</text>
+
+      <line x1="250" y1="53" x2="280" y2="53" stroke="#4a9eff" stroke-width="1.3" marker-end="url(#ar2)"/>
+
+      <rect x="284" y="30" width="96" height="46" rx="7" fill="#1b232e" stroke="#3a4757"/>
+      <text x="332" y="50" text-anchor="middle" fill="#9aa8bb" font-size="11.5" font-weight="600">2-Way</text>
+      <text x="332" y="66" text-anchor="middle" fill="#6b7a8f" font-size="10">互相认识</text>
+
+      <line x1="384" y1="53" x2="414" y2="53" stroke="#4a9eff" stroke-width="1.3" marker-end="url(#ar2)"/>
+
+      <rect x="418" y="30" width="96" height="46" rx="7" fill="#1b232e" stroke="#3a4757"/>
+      <text x="466" y="50" text-anchor="middle" fill="#9aa8bb" font-size="11.5" font-weight="600">ExStart</text>
+      <text x="466" y="66" text-anchor="middle" fill="#6b7a8f" font-size="10">定主从</text>
+
+      <!-- 转向下 -->
+      <line x1="514" y1="53" x2="546" y2="53" stroke="#4a9eff" stroke-width="1.3" marker-end="url(#ar2)"/>
+      <line x1="550" y1="53" x2="550" y2="130" stroke="#4a9eff" stroke-width="1.3"/>
+      <line x1="550" y1="130" x2="518" y2="130" stroke="#4a9eff" stroke-width="1.3" marker-end="url(#ar2)"/>
+
+      <!-- 下排（反向） -->
+      <rect x="418" y="108" width="96" height="46" rx="7" fill="#1b232e" stroke="#3a4757"/>
+      <text x="466" y="128" text-anchor="middle" fill="#9aa8bb" font-size="11.5" font-weight="600">Exchange</text>
+      <text x="466" y="144" text-anchor="middle" fill="#6b7a8f" font-size="10">交换目录</text>
+
+      <line x1="414" y1="131" x2="384" y2="131" stroke="#4a9eff" stroke-width="1.3" marker-end="url(#ar2)"/>
+
+      <rect x="284" y="108" width="96" height="46" rx="7" fill="#1b232e" stroke="#3a4757"/>
+      <text x="332" y="128" text-anchor="middle" fill="#9aa8bb" font-size="11.5" font-weight="600">Loading</text>
+      <text x="332" y="144" text-anchor="middle" fill="#6b7a8f" font-size="10">按目录借书</text>
+
+      <line x1="280" y1="131" x2="250" y2="131" stroke="#3ddc84" stroke-width="1.5" marker-end="url(#ar2)"/>
+
+      <rect x="150" y="108" width="96" height="46" rx="7" fill="#123d2a" stroke="#1e5c3f" stroke-width="1.5"/>
+      <text x="198" y="128" text-anchor="middle" fill="#3ddc84" font-size="11.5" font-weight="700">Full</text>
+      <text x="198" y="144" text-anchor="middle" fill="#7fcfa5" font-size="10">地图一致</text>
+
+      <text x="350" y="200" text-anchor="middle" fill="#9aa8bb" font-size="11.5">卡在 Init → 单向可达（回包被挡）｜卡在 ExStart → MTU 不一致</text>
+      <text x="350" y="222" text-anchor="middle" fill="#3ddc84" font-size="11.5">看到 Full = 这条链路的"地图交换"完成了</text>
+    </svg>
+  </div>
+</section>
+
+<!-- ==================== 7 ==================== -->
+<section>
+  <h2><span class="n">7</span>DR / BDR：为什么要有班长</h2>
+  <p class="lead">10 台路由器两两建邻居需要 45 条关系，LSA 泛洪会变成广播风暴。</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 660 190" xmlns="http://www.w3.org/2000/svg">
+      <!-- 左：无 DR -->
+      <text x="150" y="20" text-anchor="middle" fill="#ff6b6b" font-size="12" font-weight="600">没选 DR：45 条关系</text>
+      <circle cx="150" cy="60" r="15" fill="#1b232e" stroke="#3a4757"/><text x="150" y="65" text-anchor="middle" fill="#9aa8bb" font-size="10">R1</text>
+      <circle cx="90" cy="130" r="15" fill="#1b232e" stroke="#3a4757"/><text x="90" y="135" text-anchor="middle" fill="#9aa8bb" font-size="10">R2</text>
+      <circle cx="210" cy="130" r="15" fill="#1b232e" stroke="#3a4757"/><text x="210" y="135" text-anchor="middle" fill="#9aa8bb" font-size="10">R3</text>
+      <circle cx="40" cy="80" r="15" fill="#1b232e" stroke="#3a4757"/><text x="40" y="85" text-anchor="middle" fill="#9aa8bb" font-size="10">R4</text>
+      <circle cx="260" cy="80" r="15" fill="#1b232e" stroke="#3a4757"/><text x="260" y="85" text-anchor="middle" fill="#9aa8bb" font-size="10">R5</text>
+      <!-- 杂乱连线 -->
+      <g stroke="#ff6b6b" stroke-width=".9" opacity=".55">
+        <line x1="150" y1="60" x2="90" y2="130"/><line x1="150" y1="60" x2="210" y2="130"/>
+        <line x1="150" y1="60" x2="40" y2="80"/><line x1="150" y1="60" x2="260" y2="80"/>
+        <line x1="90" y1="130" x2="210" y2="130"/><line x1="90" y1="130" x2="40" y2="80"/>
+        <line x1="210" y1="130" x2="260" y2="80"/><line x1="40" y1="80" x2="260" y2="80"/>
+        <line x1="90" y1="130" x2="260" y2="80"/><line x1="210" y1="130" x2="40" y2="80"/>
+      </g>
+
+      <!-- 分隔 -->
+      <line x1="330" y1="30" x2="330" y2="165" stroke="#2a3441" stroke-dasharray="4 4"/>
+
+      <!-- 右：有 DR -->
+      <text x="500" y="20" text-anchor="middle" fill="#3ddc84" font-size="12" font-weight="600">选了 DR：只要 10 条</text>
+      <circle cx="380" cy="60" r="15" fill="#1b232e" stroke="#3a4757"/><text x="380" y="65" text-anchor="middle" fill="#9aa8bb" font-size="10">R1</text>
+      <circle cx="380" cy="130" r="15" fill="#1b232e" stroke="#3a4757"/><text x="380" y="135" text-anchor="middle" fill="#9aa8bb" font-size="10">R2</text>
+      <circle cx="470" cy="150" r="15" fill="#1b232e" stroke="#3a4757"/><text x="470" y="155" text-anchor="middle" fill="#9aa8bb" font-size="10">R3</text>
+      <circle cx="470" cy="32" r="15" fill="#1b232e" stroke="#3a4757"/><text x="470" y="37" text-anchor="middle" fill="#9aa8bb" font-size="10">R4</text>
+      <circle cx="470" cy="92" r="24" fill="#1e3a5f" stroke="#4a9eff" stroke-width="1.8"/>
+      <text x="470" y="97" text-anchor="middle" fill="#4a9eff" font-size="11" font-weight="700">DR</text>
+
+      <g stroke="#3ddc84" stroke-width="1.2" opacity=".8">
+        <line x1="394" y1="62" x2="447" y2="86"/>
+        <line x1="393" y1="126" x2="448" y2="102"/>
+        <line x1="457" y1="145" x2="464" y2="118"/>
+        <line x1="458" y1="45" x2="465" y2="72"/>
+      </g>
+      <text x="500" y="180" text-anchor="middle" fill="#6b7a8f" font-size="10.5">其他路由器只跟 DR 同步</text>
+    </svg>
+  </div>
+
+  <div class="quote good">
+    <b>比喻：</b>收作业不需要每个人互相交换，都交给班长，班长汇总完再发给大家。
+  </div>
+
+  <div class="kv">
+    <div class="k">选举规则</div><div class="v">优先级高者胜（默认 1）→ 优先级相同比 <b>Router ID</b>，大的赢</div>
+    <div class="k">所以</div><div class="v">配 <code>router-id 1.1.1.1</code> 不只是起个名字，它还参与选举</div>
+  </div>
+</section>
+
+<!-- ==================== 8 ==================== -->
+<section>
+  <h2><span class="n">8</span>Cost：路有多贵</h2>
+  <p class="lead">有了地图，就像高德算最短路。OSPF 用 Cost 衡量"这条路多贵"。</p>
+
+  <pre><code><span class="kw">Cost</span> = 参考带宽 / 接口带宽 = 100Mbps / 带宽</code></pre>
+
+  <table>
+    <thead><tr><th style="width:50%">接口</th><th style="width:50%">Cost</th></tr></thead>
+    <tbody>
+      <tr><td>千兆（1000M）</td><td><b>1</b></td></tr>
+      <tr><td>百兆（100M）</td><td>1（最小值就是 1）</td></tr>
+      <tr><td>十兆（10M）</td><td>10</td></tr>
+      <tr><td>2M 专线</td><td>48</td></tr>
+    </tbody>
+  </table>
+
+  <p><b>一条路径的总 Cost = 沿途所有接口 Cost 之和</b>，取最小的。你在 <code>display ospf lsdb ase</code> 里看到的 <code>Metric: 1</code> 就是这个。</p>
+</section>
+
+<!-- ==================== 9 ==================== -->
+<section>
+  <h2><span class="n">9</span>内部路由 vs 外部路由</h2>
+  <p class="lead">全篇最重要的一节，实战案例的坑就在这里。</p>
+
+  <table>
+    <thead><tr><th style="width:20%"></th><th style="width:40%">内部路由</th><th style="width:40%">外部路由</th></tr></thead>
+    <tbody>
+      <tr><td><b>类型</b></td><td><span class="tag in">Type-1/2/3</span></td><td><span class="tag out">Type-5</span></td></tr>
+      <tr><td><b>谁产生</b></td><td>域内任何路由器</td><td class="a"><b>只有 ASBR</b></td></tr>
+      <tr><td><b>内容</b></td><td>我这个网段在哪</td><td>外面世界怎么走</td></tr>
+      <tr><td><b>例子</b></td><td>192.168.10.0/24</td><td>0.0.0.0/0 默认路由</td></tr>
+    </tbody>
+  </table>
+
+  <p><b>ASBR</b>（自治系统边界路由器）= <b>同时连着 OSPF 域和外部网络</b>的设备。</p>
+
+  <div class="quote">
+    <b>核心比喻：</b><br>
+    一个班 40 个学生，每个人都知道班里同学的座位（<b>内部路由</b>）。<br>
+    但<b>校门在哪，只有班主任知道</b>（<b>外部路由</b>）。<br><br>
+    如果有个同学举手说"校门在东边"，但他自己从来没出过校门——<b>这不是帮忙，是误导。</b>
+  </div>
+
+  <div class="diagram">
+    <svg viewBox="0 0 640 280" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="ar3" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+          <path d="M0,1 L7,4.5 L0,8 z" fill="#9aa8bb"/>
+        </marker>
+      </defs>
+
+      <!-- 外网 -->
+      <rect x="240" y="10" width="160" height="44" rx="8" fill="#161c24" stroke="#3a4757" stroke-dasharray="4 3"/>
+      <text x="320" y="30" text-anchor="middle" fill="#9aa8bb" font-size="11.5">PC5 · 200.1.1.2</text>
+      <text x="320" y="46" text-anchor="middle" fill="#6b7a8f" font-size="10">外部网络（校外）</text>
+
+      <line x1="320" y1="56" x2="320" y2="86" stroke="#9aa8bb" stroke-width="1.4" marker-end="url(#ar3)"/>
+
+      <!-- AR1 -->
+      <rect x="248" y="88" width="144" height="52" rx="8" fill="#3d2f10" stroke="#f5b642" stroke-width="1.6"/>
+      <text x="320" y="110" text-anchor="middle" fill="#f5b642" font-size="12.5" font-weight="700">AR1 · ASBR</text>
+      <text x="320" y="128" text-anchor="middle" fill="#e0c88c" font-size="10.5">班主任 — 唯一出过校门的人</text>
+
+      <line x1="320" y1="140" x2="320" y2="170" stroke="#9aa8bb" stroke-width="1.4" marker-end="url(#ar3)"/>
+      <text x="336" y="160" fill="#6b7a8f" font-size="10">10.0.0.0/30</text>
+
+      <!-- LSW1 -->
+      <rect x="248" y="172" width="144" height="52" rx="8" fill="#1b232e" stroke="#3a4757" stroke-width="1.4"/>
+      <text x="320" y="194" text-anchor="middle" fill="#e6ebf2" font-size="12.5" font-weight="700">LSW1</text>
+      <text x="320" y="212" text-anchor="middle" fill="#9aa8bb" font-size="10.5">学生 — 只在班里活动</text>
+
+      <line x1="290" y1="224" x2="200" y2="252" stroke="#9aa8bb" stroke-width="1.3"/>
+      <line x1="350" y1="224" x2="440" y2="252" stroke="#9aa8bb" stroke-width="1.3"/>
+
+      <!-- 内网网段 -->
+      <rect x="90" y="248" width="120" height="26" rx="6" fill="#161c24" stroke="#2a3441"/>
+      <text x="150" y="266" text-anchor="middle" fill="#6b7a8f" font-size="10.5">VLAN10/20</text>
+      <rect x="430" y="248" width="120" height="26" rx="6" fill="#161c24" stroke="#2a3441"/>
+      <text x="490" y="266" text-anchor="middle" fill="#6b7a8f" font-size="10.5">VLAN30/99</text>
+    </svg>
+    <div class="cap">只有 AR1 有资格宣告"去外网怎么走"</div>
+  </div>
+</section>
+
+<!-- ==================== 10 ==================== -->
+<section>
+  <h2><span class="n">10</span>实战复盘：默认路由的四个回合</h2>
+  <p class="lead">把上面的知识串起来，重放一次真实排障过程。</p>
+
+  <ol class="steps">
+    <li>
+      <b>第一回合：为什么 PC1 通不了 PC5</b>
+      PC1 的包到 LSW1，LSW1 查路由表只有 192.168.x 直连，没有 <code>0.0.0.0/0</code>，直接丢弃。<br>
+      <span class="r">根因：LSW1 不知道"去外网交给谁"。</span>
+    </li>
+    <li>
+      <b>第二回合：为什么必须在 AR1 上配</b>
+      需要让 AR1 主动宣告"想去校外交给我"。这在 OSPF 里等于 <b>AR1 产生一条 Type-5 LSA</b>，内容为 <code>Ls id: 0.0.0.0</code>。<br>
+      你后来查到的就是这张明信片：
+      <pre style="margin-top:10px"><code>Type      : External     <span class="cm"># 外部路由</span>
+Ls id     : 0.0.0.0      <span class="cm"># 默认路由</span>
+Adv rtr   : 2.2.2.2      <span class="cm"># AR1 在发布</span>
+Metric    : 1</code></pre>
+    </li>
+    <li>
+      <b>第三回合：为什么必须加 always</b>
+      <code>default-route-advertise</code> 默认要求<b>本机路由表里已有默认路由</b>才发布。但 AR1 去 200.1.1.2 是<b>直连</b>的，压根不需要默认路由——所以它一条 LSA 都不产生。<br>
+      加 <code>always</code> = <span class="a">"不管我有没有，强制发布"</span>。
+    </li>
+    <li>
+      <b>第四回合：为什么在 LSW1 上配会把事情搞坏</b>
+      在 LSW1 上配 = 让没出过校门的学生举手说"校门在东边"。后果：
+      <pre style="margin-top:10px"><code>AR1 路由表： 0.0.0.0/0 → 10.0.0.1（LSW1）   <span class="cm"># 错误！</span>
+LSW1 路由表：0.0.0.0/0 → 10.0.0.2（AR1）</code></pre>
+      去外网的包变成 <b class="r">AR1 发给 LSW1，LSW1 发回 AR1</b>，像两只手互相传球，永远送不出去。<br>
+      撤销后假路标消失，只剩 AR1 的真路标，网络立刻通。
+    </li>
+  </ol>
+
+  <div class="quote good">
+    <b>一句话记住：</b>默认路由是"最后一道出口"的宣告，<b>只能由真正有出口的设备发布</b>。<br>
+    位置错了，不是"不生效"，而是<b>主动制造环路</b>。
+  </div>
+</section>
+
+<!-- ==================== 11 ==================== -->
+<section>
+  <h2><span class="n">11</span>这张图请记住</h2>
+
+  <div class="diagram">
+    <svg viewBox="0 0 680 300" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="ar4" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+          <path d="M0,1 L7,4.5 L0,8 z" fill="#4a9eff"/>
+        </marker>
+      </defs>
+
+      <!-- 主链 -->
+      <rect x="30" y="30" width="110" height="52" rx="8" fill="#1b232e" stroke="#3a4757"/>
+      <text x="85" y="52" text-anchor="middle" fill="#e6ebf2" font-size="11.5" font-weight="600">邻居表</text>
+      <text x="85" y="68" text-anchor="middle" fill="#6b7a8f" font-size="10">Hello 维护</text>
+
+      <line x1="144" y1="56" x2="196" y2="56" stroke="#4a9eff" stroke-width="1.4" marker-end="url(#ar4)"/>
+
+      <rect x="200" y="30" width="130" height="52" rx="8" fill="#1e3a5f" stroke="#2d5580"/>
+      <text x="265" y="52" text-anchor="middle" fill="#e6ebf2" font-size="11.5" font-weight="600">LSDB</text>
+      <text x="265" y="68" text-anchor="middle" fill="#4a9eff" font-size="10">完整地图</text>
+
+      <line x1="334" y1="56" x2="386" y2="56" stroke="#4a9eff" stroke-width="1.4" marker-end="url(#ar4)"/>
+      <text x="360" y="46" text-anchor="middle" fill="#6b7a8f" font-size="9.5">SPF</text>
+
+      <rect x="390" y="30" width="120" height="52" rx="8" fill="#1b232e" stroke="#3a4757"/>
+      <text x="450" y="52" text-anchor="middle" fill="#e6ebf2" font-size="11.5" font-weight="600">路由表</text>
+      <text x="450" y="68" text-anchor="middle" fill="#3ddc84" font-size="10">出口决策</text>
+
+      <!-- 下行 LSA 类型 -->
+      <line x1="265" y1="86" x2="265" y2="120" stroke="#3a4757" stroke-width="1.2" stroke-dasharray="4 3"/>
+
+      <rect x="120" y="124" width="150" height="66" rx="8" fill="#123d2a" stroke="#1e5c3f"/>
+      <text x="195" y="148" text-anchor="middle" fill="#3ddc84" font-size="11.5" font-weight="700">内部路由</text>
+      <text x="195" y="165" text-anchor="middle" fill="#8fd4ad" font-size="10">Type-1 / 2 / 3</text>
+      <text x="195" y="181" text-anchor="middle" fill="#7fcfa5" font-size="10">谁都能发</text>
+
+      <rect x="300" y="124" width="160" height="66" rx="8" fill="#3d2f10" stroke="#5c4616"/>
+      <text x="380" y="148" text-anchor="middle" fill="#f5b642" font-size="11.5" font-weight="700">外部路由</text>
+      <text x="380" y="165" text-anchor="middle" fill="#e0c88c" font-size="10">Type-5</text>
+      <text x="380" y="181" text-anchor="middle" fill="#e0c88c" font-size="10">只有 ASBR 能发</text>
+
+      <!-- 环路示意 -->
+      <rect x="130" y="218" width="420" height="58" rx="8" fill="#3d1a1a" stroke="#5c2a2a"/>
+      <text x="340" y="242" text-anchor="middle" fill="#ff6b6b" font-size="11.5" font-weight="600">在错误设备上发布默认路由的后果</text>
+      <text x="340" y="262" text-anchor="middle" fill="#e0a0a0" font-size="10.5">AR1 ⇄ LSW1 互相转发，永不出去</text>
+    </svg>
+  </div>
+</section>
+
+<footer>
+  OSPF 图解笔记 · 配套实战：eNSP 企业网组网与排障<br>
+  所有现象均来自真实实验环境（eNSP · 华为 VRP）
+</footer>
+
+</div>
+</body>
+</html>

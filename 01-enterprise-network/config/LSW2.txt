@@ -1,0 +1,36 @@
+#
+# LSW2 · 接入交换机（S3700）
+# 角色：二层接入，承载 VLAN 10（技术部）/ VLAN 20（市场部）
+#
+
+sysname LSW2
+
+#
+# VLAN 规划
+#
+vlan batch 10 20
+
+#
+# 接入口 · 终端
+#
+interface GigabitEthernet0/0/2
+ description to-PC1
+ port link-type access
+ port default vlan 10
+
+interface GigabitEthernet0/0/3
+ description to-PC2
+ port link-type access
+ port default vlan 20
+
+#
+# 上行 Trunk · 连接核心交换机
+# 注意：必须放行本设备承载的全部业务 VLAN，
+#       否则对应 VLAN 的流量会被丢弃（参见 troubleshooting 故障一）
+#
+interface GigabitEthernet0/0/1
+ description to-LSW1-Trunk
+ port link-type trunk
+ port trunk allow-pass vlan 10 20
+
+return

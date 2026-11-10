@@ -1,0 +1,101 @@
+#
+# LSW1 · 核心交换机（S5700）
+# 角色：三层网关 / DHCP 服务器 / OSPF 域内路由器 / ACL 访问控制
+#
+# 说明：本文件由 display current-configuration 导出并整理，
+#       省略了默认配置与无关项（如 user-interface、部分默认参数）。
+#
+
+sysname LSW1
+
+#
+# VLAN 规划
+#
+vlan batch 10 20 30 99 200
+
+#
+# DHCP 全局地址池
+# VLAN 10 / 20 / 30 使用 DHCP，VLAN 99 服务器区使用静态地址
+#
+dhcp enable
+
+ip pool vlan10
+ gateway-list 192.168.10.254
+ network 192.168.10.0 mask 255.255.255.0
+ dns-list 114.114.114.114
+
+ip pool vlan20
+ gateway-list 192.168.20.254
+ network 192.168.20.0 mask 255.255.255.0
+ dns-list 114.114.114.114
+
+ip pool vlan30
+ gateway-list 192.168.30.254
+ network 192.168.30.0 mask 255.255.255.0
+ dns-list 114.114.114.114
+
+#
+# ACL 3000 · 访客区隔离
+# 拒绝 VLAN 30 访问服务器区 VLAN 99，其余放行
+#
+acl number 3000
+ rule 5 deny ip source 192.168.30.0 0.0.0.255 destination 192.168.99.0 0.0.0.255
+ rule 10 permit ip
+
+#
+# 三层接口（各业务网段网关）
+#
+interface Vlanif10
+ ip address 192.168.10.254 255.255.255.0
+ dhcp select global
+
+interface Vlanif20
+ ip address 192.168.20.254 255.255.255.0
+ dhcp select global
+
+interface Vlanif30
+ ip address 192.168.30.254 255.255.255.0
+ dhcp select global
+ traffic-filter inbound acl 3000
+
+interface Vlanif99
+ ip address 192.168.99.254 255.255.255.0
+
+interface Vlanif200
+ ip address 10.0.0.1 255.255.255.252
+
+#
+# 下行 Trunk · 连接接入交换机
+#
+interface GigabitEthernet0/0/1
+ description to-LSW2-Trunk
+ port link-type trunk
+ port trunk allow-pass vlan 10 20
+
+interface GigabitEthernet0/0/2
+ description to-LSW3-Trunk
+ port link-type trunk
+ port trunk allow-pass vlan 30 99
+
+#
+# 上行 · 连接出口路由器
+#
+interface GigabitEthernet0/0/24
+ description to-AR1
+ port link-type access
+ port default vlan 200
+
+#
+# OSPF
+# 注：本设备为纯内网设备，未配置 default-route-advertise
+#     默认路由由出口路由器 AR1 通过 Type-5 LSA 下发
+#
+ospf 1 router-id 1.1.1.1
+ area 0.0.0.0
+  network 192.168.10.0 0.0.0.255
+  network 192.168.20.0 0.0.0.255
+  network 192.168.30.0 0.0.0.255
+  network 192.168.99.0 0.0.0.255
+  network 10.0.0.0 0.0.0.3
+
+return

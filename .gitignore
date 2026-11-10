@@ -1,0 +1,33 @@
+# ---- eNSP 运行临时文件 ----
+*.tmp
+*.bak
+*.swp
+Device/
+*.cfg.bak
+
+# ---- eNSP 设备闪存与工程附属目录（二进制/体积大，不入库）----
+# eNSP 打开工程时会在 .topo 同级目录下按设备 ID（GUID 命名）生成设备闪存目录，
+# 里面是 flash.efz 等二进制文件，无版本意义，请勿提交。
+*.efz
+**/[0-9A-Fa-f]*-[0-9A-Fa-f]*-[0-9A-Fa-f]*-[0-9A-Fa-f]*-*/
+
+# ---- 操作系统 ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- 编辑器 ----
+.vscode/
+.idea/
+*.sublime-*
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+venv/
+.venv/
+
+# ---- 运行日志（脚本生成，不入库）----
+result_*.txt
+*.log

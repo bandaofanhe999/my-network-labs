@@ -1,0 +1,51 @@
+#
+# AR1 · 出口路由器（AR2220）
+# 角色：ASBR / 默认路由发布 / NAT 地址转换
+#
+
+sysname AR1
+
+#
+# ACL 2000 · NAT 匹配规则
+# 允许全部内网私网地址做源地址转换
+#
+acl number 2000
+ rule 5 permit source 192.168.0.0 0.0.255.255
+
+#
+# 内网侧接口 · 连接核心交换机
+#
+interface GigabitEthernet0/0/0
+ description to-LSW1
+ ip address 10.0.0.2 255.255.255.252
+
+#
+# 外网侧接口 · 连接模拟外网
+# nat outbound 2000 必须配在出接口上
+#
+interface GigabitEthernet0/0/1
+ description to-Internet
+ ip address 200.1.1.1 255.255.255.252
+ nat outbound 2000
+
+#
+# OSPF
+#
+# default-route-advertise always 说明：
+#   本设备的出口 200.1.1.0/30 为直连网段，
+#   路由表中不存在 0.0.0.0/0，
+#   若不使用 always 参数，OSPF 不会产生默认路由的 Type-5 LSA。
+#   参见 troubleshooting 故障二。
+#
+ospf 1 router-id 2.2.2.2
+ default-route-advertise always
+ area 0.0.0.0
+  network 10.0.0.0 0.0.0.3
+
+#
+# 说明：本实验中外网为直连网段，无需配置静态默认路由。
+#       若出口为多跳场景（如经上级运营商），则需要补充：
+#       ip route-static 0.0.0.0 0.0.0.0 <下一跳地址>
+#
+
+return

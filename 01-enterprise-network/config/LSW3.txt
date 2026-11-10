@@ -1,0 +1,35 @@
+#
+# LSW3 · 接入交换机（S3700）
+# 角色：二层接入，承载 VLAN 30（访客区）/ VLAN 99（服务器区）
+#
+
+sysname LSW3
+
+#
+# VLAN 规划
+#
+vlan batch 30 99
+
+#
+# 接入口 · 终端
+#
+interface GigabitEthernet0/0/2
+ description to-PC3
+ port link-type access
+ port default vlan 30
+
+interface GigabitEthernet0/0/3
+ description to-Server1
+ port link-type access
+ port default vlan 99
+
+#
+# 上行 Trunk · 连接核心交换机
+# 必须同时放行 VLAN 30 与 VLAN 99
+#
+interface GigabitEthernet0/0/1
+ description to-LSW1-Trunk
+ port link-type trunk
+ port trunk allow-pass vlan 30 99
+
+return
